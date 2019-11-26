@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Tester</title>
+	</head>
+	<body>
+		<table id="games" border="1">
+			<thead>
+				<tr>
+					<td>Thumbnail</td>
+					<td>Name</td>
+					<td>Delete</td>
+				</tr>
+			</thead>
+			<tbody id="body">
+			</tbody>
+		</table>
+		<script>
+			var gameList = [], gameIds = [];
+			var users = ['lbleicher', 'patty_tass', 'Troxxxa', 'Bayushi_Oliveira', 'Elda%20King', 'waltsontanaka', 'Doft'];
+			var parser = new DOMParser();
+			for (var u = 0; u < users.length; u++) {
+				var userReq = new XMLHttpRequest();
+				userReq.open("GET", "http://localhost:8085/https://www.boardgamegeek.com/xmlapi2/collection?username=" + users[u] + "&subtype=boardgame&own=1", false);
+				userReq.send(null);
+				
+				var items = parser.parseFromString(userReq.responseText, "text/xml").getElementsByTagName("item");
+				
+				var ids = "";
+				for (let i = 0; i < items.length; i++) {
+					var gameId = items[i].getAttribute("objectid");
+					if (gameIds.indexOf(gameId) == -1) {
+						ids += gameId + ",";
+						gameIds.push(gameId);
+					}
+				}
+				ids = ids.substr(0, ids.length-1);
+				
+				var gameReq = new XMLHttpRequest();
+				gameReq.open("GET", "http://localhost:8085/https://www.boardgamegeek.com/xmlapi2/thing?id=" + ids, false);
+				gameReq.send(null);
+				
+				var games = parser.parseFromString(gameReq.responseText, "text/xml").getElementsByTagName("item");
+				
+				for (let i = 0; i < games.length; i++) {
+					var game = games[i];
+					var players = game.getElementsByTagName('maxplayers');
+					if (parseInt(players[0].getAttribute("value")) <= 2)
+						continue;
+					
+					var isExpansion = false;
+					var links = game.getElementsByTagName('link');
+					for (let j = 0; j < links.length; j++) {
+						if (links[j].getAttribute("type") == "boardgameexpansion" && links[j].getAttribute("inbound") == "true")
+							isExpansion = true;
+					}
+					
+					if (isExpansion)
+						continue;
+					
+					var name = game.getElementsByTagName('name')[0].getAttribute("value");
+					var thumbnail = game.getElementsByTagName('thumbnail')[0].innerHTML;
+					gameList.push({ name, thumbnail });
+				}
+			}
+			
+			gameList = gameList.sort(function(a,b) {return (a.name > b.name) ? 1 : ((b.name > a.name) ? -1 : 0);} );
+				
+			gameList.forEach(function(game) {
+				var tr = document.createElement("tr");
+				var tdImage = document.createElement("td");
+				var image = document.createElement("img");
+				var tdName = document.createElement("td");
+				var name = document.createElement("span");
+				var tdDelete = document.createElement("td");
+				var deleteButton = document.createElement("button");
+				
+				image.src = game.thumbnail;
+				image.height = 120;
+				name.innerHTML = game.name;
+				deleteButton.innerHTML = "Delete";
+				
+				deleteButton.addEventListener("click", function(e) {
+					tr.remove();
+				});
+				
+				tdDelete.appendChild(deleteButton);
+				tdImage.className = "td-image";
+				tdImage.appendChild(image);
+				tdName.className = "td-name";
+				tdName.appendChild(name);
+				tr.appendChild(tdImage);
+				tr.appendChild(tdName);
+				tr.appendChild(tdDelete);
+				document.getElementById("body").appendChild(tr);
+			});
+		</script>
+		<style lang="css">
+			.td-image, thead td {
+				text-align: center;
+			}
+			
+			.td-name {
+				padding: 20px;
+			}
+		</style>
+	</body>
+</html>
